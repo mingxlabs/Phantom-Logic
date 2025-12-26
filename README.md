@@ -1,110 +1,198 @@
-# FHEVM Hardhat Template
+# Phantom Logic
 
-A Hardhat-based template for developing Fully Homomorphic Encryption (FHE) enabled Solidity smart contracts using the
-FHEVM protocol by Zama.
+Privacy-first logic quiz built on Zama FHEVM. Players start with encrypted points, submit encrypted answers, and earn an
+encrypted bonus for a perfect score.
 
-## Quick Start
+## Overview
 
-For detailed instructions see:
-[FHEVM Hardhat Quick Start Tutorial](https://docs.zama.ai/protocol/solidity-guides/getting-started/quick-start-tutorial)
+Phantom Logic is a short, on-chain quiz game that demonstrates how Fully Homomorphic Encryption (FHE) can be used to
+protect player choices and scores while keeping the gameplay verifiable. The game uses four logic questions, each with
+four options. Players select exactly one option per question, and the correct pattern is 1, 1, 2, 2. Answers and scores
+remain encrypted end-to-end.
 
-### Prerequisites
+## The Problem This Solves
 
-- **Node.js**: Version 20 or higher
-- **npm or yarn/pnpm**: Package manager
+Traditional on-chain quizzes leak answers and player choices because calldata and storage are transparent. That makes
+fair play impossible and prevents privacy-sensitive gameplay. Phantom Logic addresses this by encrypting every answer
+and score on-chain, so participants can play without revealing their selections or points.
 
-### Installation
+## Advantages
 
-1. **Install dependencies**
+- **Answer privacy**: Every submitted option is encrypted using Zama FHE input proofs.
+- **Score privacy**: Player scores remain encrypted in storage and are only decryptable by authorized viewers.
+- **Verifiable outcomes**: Correctness checks happen on-chain over encrypted values.
+- **Simple, auditable rules**: Fixed question count and scoring logic reduce ambiguity.
+- **No hidden server**: Core game logic is fully on-chain.
 
-   ```bash
-   npm install
-   ```
+## Key Features
 
-2. **Set up environment variables**
+- 4 questions, 4 options each, single choice per question
+- Correct option sequence: 1, 1, 2, 2
+- Starting score: 100 (encrypted)
+- Perfect bonus: +100 if all answers match
+- Encrypted answer submission and encrypted scoring
+- Per-player game state with answered bitmask and completion status
 
-   ```bash
-   npx hardhat vars set MNEMONIC
+## Tech Stack
 
-   # Set your Infura API key for network access
-   npx hardhat vars set INFURA_API_KEY
+- **Smart contracts**: Solidity + Hardhat + hardhat-deploy
+- **FHE**: Zama FHEVM (`@fhevm/solidity`)
+- **Frontend**: React + Vite
+- **Wallet/UX**: RainbowKit + Wagmi
+- **Reads**: viem
+- **Writes**: ethers
+- **Relayer**: `@zama-fhe/relayer-sdk`
 
-   # Optional: Set Etherscan API key for contract verification
-   npx hardhat vars set ETHERSCAN_API_KEY
-   ```
+## Architecture
 
-3. **Compile and test**
+### On-Chain Contracts
 
-   ```bash
-   npm run compile
-   npm run test
-   ```
+The main contract is `PhantomLogic.sol` in `contracts/`. It:
 
-4. **Deploy to local network**
+- Creates an encrypted starting score when the game begins
+- Stores encrypted answers for each question
+- Computes correctness using encrypted comparisons
+- Applies a bonus only if all answers are correct
+- Exposes encrypted score handles for authorized decryption
 
-   ```bash
-   # Start a local FHEVM-ready node
-   npx hardhat node
-   # Deploy to local network
-   npx hardhat deploy --network localhost
-   ```
+Events:
 
-5. **Deploy to Sepolia Testnet**
+- `GameStarted(player)`
+- `AnswerSubmitted(player, questionId)`
+- `GameCompleted(player)`
 
-   ```bash
-   # Deploy to Sepolia
-   npx hardhat deploy --network sepolia
-   # Verify contract on Etherscan
-   npx hardhat verify --network sepolia <CONTRACT_ADDRESS>
-   ```
+### Frontend
 
-6. **Test on Sepolia Testnet**
+The frontend lives in `frontend/` and is built on the following rules:
 
-   ```bash
-   # Once deployed, you can run a simple test on Sepolia.
-   npx hardhat test --network sepolia
-   ```
+- Uses **ethers** for all contract writes (transactions)
+- Uses **viem** for all contract reads
+- No Tailwind CSS
+- No localStorage usage
+- No JSON files inside `frontend/`
+- No environment variables in the frontend
+- No imports from the repository root
 
-## 📁 Project Structure
+### Encryption & Privacy Flow
+
+1. The frontend uses the Zama relayer to encrypt the chosen option and produce an input proof.
+2. The contract converts external ciphertext into internal encrypted values.
+3. All correctness checks are done over encrypted values.
+4. Scores remain encrypted and are only decryptable by ACL-authorized users.
+
+## Game Flow
+
+1. Player calls `startGame()` and receives an encrypted score of 100.
+2. Player answers each question with an encrypted option index.
+3. Once all four answers are submitted, the contract checks the encrypted answers.
+4. If all are correct (1, 1, 2, 2), a 100-point encrypted bonus is added.
+5. The game is marked complete.
+
+## Repository Layout
 
 ```
-fhevm-hardhat-template/
-├── contracts/           # Smart contract source files
-│   └── FHECounter.sol   # Example FHE counter contract
-├── deploy/              # Deployment scripts
-├── tasks/               # Hardhat custom tasks
-├── test/                # Test files
-├── hardhat.config.ts    # Hardhat configuration
-└── package.json         # Dependencies and scripts
+contracts/             # Solidity contracts (PhantomLogic.sol)
+deploy/                # Deployment scripts
+tasks/                 # Hardhat tasks
+test/                  # Contract tests
+frontend/              # React + Vite application
+docs/                  # Zama references
+deployments/           # Network deployments (includes ABI files)
 ```
 
-## 📜 Available Scripts
+## Prerequisites
 
-| Script             | Description              |
-| ------------------ | ------------------------ |
-| `npm run compile`  | Compile all contracts    |
-| `npm run test`     | Run all tests            |
-| `npm run coverage` | Generate coverage report |
-| `npm run lint`     | Run linting checks       |
-| `npm run clean`    | Clean build artifacts    |
+- Node.js 20+
+- npm
+- A funded Sepolia account for deployments
 
-## 📚 Documentation
+## Installation
 
-- [FHEVM Documentation](https://docs.zama.ai/fhevm)
-- [FHEVM Hardhat Setup Guide](https://docs.zama.ai/protocol/solidity-guides/getting-started/setup)
-- [FHEVM Testing Guide](https://docs.zama.ai/protocol/solidity-guides/development-guide/hardhat/write_test)
-- [FHEVM Hardhat Plugin](https://docs.zama.ai/protocol/solidity-guides/development-guide/hardhat)
+```bash
+npm install
+```
 
-## 📄 License
+## Compile and Test
 
-This project is licensed under the BSD-3-Clause-Clear License. See the [LICENSE](LICENSE) file for details.
+Run the Hardhat tasks and tests locally before any Sepolia deployment:
 
-## 🆘 Support
+```bash
+npm run compile
+npm run test
+```
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/zama-ai/fhevm/issues)
-- **Documentation**: [FHEVM Docs](https://docs.zama.ai)
-- **Community**: [Zama Discord](https://discord.gg/zama)
+## Local Node Deployment
 
----
+```bash
+npm run chain
+npm run deploy:localhost
+```
 
-**Built with ❤️ by the Zama team**
+## Sepolia Deployment
+
+This project deploys using a private key (no mnemonic). The environment variables are loaded in Hardhat using:
+
+```ts
+import * as dotenv from "dotenv";
+dotenv.config();
+```
+
+Required variables:
+
+- `INFURA_API_KEY`
+- `PRIVATE_KEY`
+
+Deploy:
+
+```bash
+npm run deploy:sepolia
+```
+
+## Frontend Development
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Notes:
+
+- The frontend targets the network configured in code (no localhost network).
+- The contract ABI must be copied from `deployments/sepolia` into the frontend code.
+- All reads use viem and all writes use ethers.
+
+## Scripts
+
+Root scripts:
+
+- `npm run compile`
+- `npm run test`
+- `npm run deploy:localhost`
+- `npm run deploy:sepolia`
+- `npm run verify:sepolia`
+
+Frontend scripts:
+
+- `npm run dev` (inside `frontend/`)
+- `npm run build`
+- `npm run preview`
+
+## Limitations
+
+- Fixed question set and fixed correct answers (1, 1, 2, 2)
+- Encrypted answers are not publicly readable by design
+- No leaderboard or public scoring board yet
+
+## Future Plans
+
+- Configurable question sets and answer keys
+- Multiple game sessions per player
+- Privacy-preserving leaderboard with optional opt-in reveal
+- Improved gas efficiency and batched answer submission
+- Expanded UX around encryption progress and error handling
+- Additional networks supported by Zama FHEVM
+
+## License
+
+BSD-3-Clause-Clear. See `LICENSE`.
